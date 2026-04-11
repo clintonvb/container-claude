@@ -51,6 +51,16 @@ RUN chown -R claude:users /home/claude \
  && chmod -R g+w /home/claude
 USER claude
 
+# Symlink /home/claude/.claude.json and .claude.json.lock into the bind-mounted
+# /home/claude/.claude/ folder so they persist across container recreations.
+# Claude writes these at the home directory level (not inside .claude/), so
+# without the symlinks every new container starts with a fresh first-run wizard
+# (theme selection, trust prompts, etc.) which can't complete in a headless
+# remote-control process, causing crash-loops. Symlink targets don't need to
+# exist at build time — they'll be created inside the bind mount on first write.
+RUN ln -sf /home/claude/.claude/.claude.json /home/claude/.claude.json \
+ && ln -sf /home/claude/.claude/.claude.json.lock /home/claude/.claude.json.lock
+
 WORKDIR /workspace
 ENTRYPOINT ["tini","--"]
 CMD ["claude","--remote-control"]
