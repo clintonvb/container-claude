@@ -7,7 +7,6 @@ services:
     volumes:
       - <host-data-path>:/home/claude/.claude
       - <host-workspace-path>:/workspace
-      - <host-npm-global-path>:/home/claude/.npm-global
     environment:
       - TZ=<your-tz>
     cap_drop: [ALL]

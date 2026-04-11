@@ -69,8 +69,8 @@ green under the Actions tab, then confirm the package at Profile → Packages �
 ### 2. Prepare the host folders
 
 ```bash
-mkdir -p <host-data-path> <host-workspace-path> <host-npm-global-path>
-chown -R <UID>:<GID> <host-data-path> <host-workspace-path> <host-npm-global-path>
+mkdir -p <host-data-path> <host-workspace-path>
+chown -R <UID>:<GID> <host-data-path> <host-workspace-path>
 ```
 
 The UID/GID must match the `user:` line in `compose.yaml`.
@@ -183,6 +183,11 @@ The bind mount folders aren't owned by the UID inside the container. Re-run the
 `docker logs claude` — if it complains about missing credentials, the OAuth bootstrap
 (step 3) didn't land in the bind mount. Verify the data folder contains files owned
 by the right UID.
+
+**`[FATAL tini] exec claude failed: No such file or directory`**
+A bind mount is shadowing the directory where the `claude` binary lives inside the
+image (`/home/claude/.npm-global`). Do not bind-mount that path — the image ships
+the binary and Claude Code updates come via image rebuilds, not runtime self-updates.
 
 **`npm install` layer fails during build**
 Transient registry or GHCR issue. Re-run the workflow.
