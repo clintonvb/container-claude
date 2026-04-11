@@ -23,6 +23,18 @@ ENV PATH=/home/claude/.local/bin:$PATH
 # setups use successfully.
 RUN curl -fsSL https://claude.ai/install.sh | bash
 
+# Claude Code writes several files directly in $HOME (e.g. ~/.claude.json,
+# ~/.claude.json.lock), not just inside ~/.claude/. When the container runs
+# with a user: override (e.g. user: "1031:100" to match host bind mount
+# ownership), UID 1031 isn't in the claude group and can't write to /home/claude.
+# Re-group the home directory to the standard `users` group (GID 100) and add
+# group-write so any host user in group 100 can write there. The claude user
+# (UID 1000) still has full access as owner.
+USER root
+RUN chown -R claude:users /home/claude \
+ && chmod -R g+w /home/claude
+USER claude
+
 WORKDIR /workspace
 ENTRYPOINT ["tini","--"]
 CMD ["claude","--remote-control"]
