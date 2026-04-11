@@ -2,8 +2,24 @@ FROM node:22-bookworm-slim
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      git python3 python3-pip ca-certificates tini curl \
+      git curl wget ca-certificates tini \
+      python3 python3-pip python3-venv \
+      ripgrep fd-find jq \
+      less vim-tiny \
+      unzip zip tree \
+      procps iputils-ping dnsutils \
+ && ln -sf "$(command -v fdfind)" /usr/local/bin/fd \
  && rm -rf /var/lib/apt/lists/*
+
+# Install ttyd (browser-based terminal). Needed for interactive flows like
+# `claude auth login` because SSH -> sudo -> docker exec chains mangle the
+# TTY chain and CLIs that read from /dev/tty (for OAuth codes, passwords,
+# etc.) can't receive input. A real browser terminal sidesteps all of it.
+# Static binary from upstream GitHub releases — no Debian package lag.
+ARG TTYD_VERSION=1.7.7
+RUN curl -fsSL -o /usr/local/bin/ttyd \
+      "https://github.com/tsl0922/ttyd/releases/download/${TTYD_VERSION}/ttyd.x86_64" \
+ && chmod +x /usr/local/bin/ttyd
 
 # Rename the base image's node user to claude. Preserves UID 1000 and the
 # /etc/passwd entry, which Claude Code relies on for home directory lookups.
