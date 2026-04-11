@@ -1,0 +1,33 @@
+services:
+  claude:
+    image: ghcr.io/<owner>/container-claude:latest
+    container_name: claude
+    restart: unless-stopped
+    user: "<UID>:<GID>"
+    volumes:
+      - <host-data-path>:/home/claude/.claude
+      - <host-workspace-path>:/workspace
+      - <host-npm-global-path>:/home/claude/.npm-global
+    environment:
+      - TZ=<your-tz>
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /home/claude/.cache
+    networks: [claude-net]
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 86400 --cleanup claude
+    networks: [claude-net]
+
+networks:
+  claude-net:
+    driver: bridge

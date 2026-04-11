@@ -1,0 +1,80 @@
+name: build
+
+on:
+  schedule:
+    # daily: check npm for a new Claude Code version, build only if there is one
+    - cron: "0 3 * * *"
+    # weekly (Sunday): force rebuild regardless, so Debian/Node base image patches land
+    - cron: "0 4 * * 0"
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve latest Claude Code version
+        id: ver
+        run: |
+          VERSION=$(curl -sSL https://registry.npmjs.org/@anthropic-ai/claude-code/latest | jq -r .version)
+          DATE=$(date -u +%Y%m%d)
+          if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
+            echo "Failed to resolve Claude Code version from npm" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
+          echo "Claude Code latest on npm: $VERSION"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Decide whether to build
+        id: decide
+        run: |
+          REASON=""
+          BUILD="true"
+          case "${{ github.event_name }}" in
+            push)              REASON="push to main" ;;
+            workflow_dispatch) REASON="manual dispatch" ;;
+            schedule)
+              if [ "${{ github.event.schedule }}" = "0 4 * * 0" ]; then
+                REASON="weekly base-image refresh"
+              else
+                # daily cron: build only if this Claude version isn't already in GHCR
+                TAG="ghcr.io/${{ github.repository_owner }}/container-claude:${{ steps.ver.outputs.version }}"
+                if docker manifest inspect "$TAG" >/dev/null 2>&1; then
+                  BUILD="false"
+                  REASON="version ${{ steps.ver.outputs.version }} already built"
+                else
+                  REASON="new Claude Code version ${{ steps.ver.outputs.version }}"
+                fi
+              fi
+              ;;
+          esac
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+          echo "Decision: build=$BUILD ($REASON)"
+
+      - name: Build and push
+        if: steps.decide.outputs.build == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          pull: true
+          no-cache: true
+          build-args: |
+            CLAUDE_VERSION=${{ steps.ver.outputs.version }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/container-claude:latest
+            ghcr.io/${{ github.repository_owner }}/container-claude:${{ steps.ver.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/container-claude:${{ steps.ver.outputs.version }}-${{ steps.ver.outputs.date }}

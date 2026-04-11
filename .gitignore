@@ -1,0 +1,6 @@
+NOTES.md
+notes/
+*.local.md
+.env
+.env.*
+secrets/
