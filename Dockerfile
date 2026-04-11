@@ -5,7 +5,8 @@ RUN apt-get update \
       git python3 python3-pip ca-certificates tini curl \
  && rm -rf /var/lib/apt/lists/*
 
-RUN useradd -m -u 1000 -s /bin/bash claude
+RUN userdel -r node 2>/dev/null || true \
+ && useradd -m -u 1000 -s /bin/bash claude
 
 USER claude
 WORKDIR /home/claude
