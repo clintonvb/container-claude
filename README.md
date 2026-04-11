@@ -21,11 +21,12 @@ there. Nothing on the host listens on a port.
 ```
   this repo
        |
-       | git push / nightly cron
+       | git push, daily version check, weekly rebuild
        v
   GitHub Actions
-    docker build --pull --no-cache
-    push -> ghcr.io/<owner>/container-claude:latest
+    check npm for new @anthropic-ai/claude-code
+    build --pull --no-cache if newer
+    push -> ghcr.io/<owner>/container-claude:{latest, X.Y.Z, X.Y.Z-YYYYMMDD}
        |
        | watchtower polls daily
        v
