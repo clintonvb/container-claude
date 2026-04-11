@@ -11,6 +11,7 @@ RUN userdel -r node 2>/dev/null || true \
 USER claude
 WORKDIR /home/claude
 
+ENV HOME=/home/claude
 ENV NPM_CONFIG_PREFIX=/home/claude/.npm-global
 ENV PATH=/home/claude/.npm-global/bin:$PATH
 
