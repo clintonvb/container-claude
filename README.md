@@ -108,9 +108,13 @@ The container starts `claude --remote-control` using the credentials from step 3
 
 Nothing to do. The pipeline handles it:
 
-- **Nightly 03:00 UTC**: GitHub Actions rebuilds the image with fresh base OS +
-  current Claude Code CLI and pushes to GHCR.
-- **Nightly**: Watchtower on the host pulls the new image, recreates the container,
+- **Daily 03:00 UTC**: GitHub Actions checks npm for a new `@anthropic-ai/claude-code`
+  release. If there is one, it builds the image pinned to that exact version and
+  pushes to GHCR. If the current version is already built, nothing happens — no
+  wasted build minutes.
+- **Weekly Sunday 04:00 UTC**: Forces a rebuild regardless, so Debian/Node base image
+  security patches land even if Claude Code hasn't changed.
+- **Daily**: Watchtower on the host pulls the new image, recreates the container,
   and cleans up the old image.
 
 Credentials, memory, MCP configs, and the workspace survive because they're on bind
@@ -123,6 +127,20 @@ Force an update now:
 # then on the host:
 docker compose pull && docker compose up -d
 ```
+
+### Image tags
+
+Every successful build pushes three tags:
+
+| Tag | Example | Meaning |
+|---|---|---|
+| `latest` | `latest` | Always points at the newest build. Use this for hands-off auto-update. |
+| `X.Y.Z` | `2.1.14` | The Claude Code CLI version installed inside the image. |
+| `X.Y.Z-YYYYMMDD` | `2.1.14-20260411` | Specific build day. Use for precise rollback if a base-image rebuild introduces a regression. |
+
+To pin a specific version in `compose.yaml`, change the `image:` line from `:latest`
+to `:2.1.14` (or whichever). Watchtower will stop auto-updating that container —
+intentional if you want the pin to hold.
 
 ## Security notes
 
