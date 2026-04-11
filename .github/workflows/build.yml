@@ -76,8 +76,6 @@ jobs:
           push: true
           pull: true
           no-cache: true
-          build-args: |
-            CLAUDE_VERSION=${{ steps.ver.outputs.version }}
           tags: |
             ghcr.io/${{ github.repository_owner }}/container-claude:latest
             ghcr.io/${{ github.repository_owner }}/container-claude:${{ steps.ver.outputs.version }}
