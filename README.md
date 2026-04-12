@@ -1,7 +1,7 @@
 # container-claude
 
 Headless [Claude Code](https://claude.com/claude-code) running in Docker, driven
-remotely from claude.ai/code. No web terminal exposed, no inbound ports, auto-updating
+remotely from claude.ai/code or programmatically via a built-in HTTP API. Auto-updating
 nightly via GitHub Actions and Watchtower.
 
 ## What this is
@@ -11,10 +11,13 @@ A minimal Dockerfile that installs the official Claude Code CLI on top of
 that rebuilds the image whenever a new Claude Code CLI version is published to npm,
 plus a weekly rebuild to pick up base-image security patches.
 
-You interact with the container from your laptop or phone through Claude Code's
-Remote Control feature: the container makes outbound connections to Anthropic's API
-and appears as a session in the sidebar at claude.ai/code. You send commands from
-there. Nothing on the host listens on a port.
+The container runs two things:
+
+- **Remote Control** — connects outbound to Anthropic's API and appears as a session
+  in the sidebar at claude.ai/code. You send commands from your laptop or phone.
+- **HTTP API** — a lightweight server on port 3000 that accepts prompts and returns
+  responses. Designed for automation tools, cron jobs, chat bots, or anything that
+  can make an HTTP request.
 
 ## Architecture
 
@@ -31,11 +34,14 @@ there. Nothing on the host listens on a port.
        | watchtower polls daily
        v
   Docker host
-    claude container  ---- outbound HTTPS ---->  api.anthropic.com
-                                                       ^
-                                                       |
-                                                  claude.ai/code
-                                                  (laptop / phone)
+    claude container
+      ├── claude --remote-control  ---- outbound HTTPS ---->  api.anthropic.com
+      │                                                             ^
+      │                                                             |
+      │                                                        claude.ai/code
+      │                                                        (laptop / phone)
+      │
+      └── HTTP API (:3000)  <---- POST /ask ----  automation / scripts / bots
 ```
 
 ## Prerequisites
@@ -51,6 +57,8 @@ there. Nothing on the host listens on a port.
 container-claude/
 ├── Dockerfile
 ├── compose.yaml
+├── server.js          # HTTP API wrapper for claude -p
+├── entrypoint.sh      # starts remote-control + API server
 ├── .github/
 │   └── workflows/
 │       └── build.yml
@@ -104,6 +112,60 @@ The container starts `claude --remote-control` using the credentials from step 3
 3. The container's session appears in the sidebar with a green status dot.
 4. Click it and send commands. File reads/writes go to the workspace bind mount.
 
+### 6. Set the API token
+
+The HTTP API requires a bearer token. Generate a random token and set it as the
+`CLAUDE_API_TOKEN` environment variable — either in `compose.yaml`, your container
+management UI, or a `.env` file. The container will refuse to start without it.
+
+```bash
+# generate a token
+openssl rand -hex 32
+```
+
+### 7. Use the HTTP API
+
+The API server listens on port 3000 inside the container. Reach it via a reverse
+proxy or directly from other containers on the same Docker network.
+
+**POST /ask** — send a prompt, get a response
+
+```bash
+curl -s http://claude:3000/ask \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your-token>" \
+  -d '{"prompt": "list the files in /workspace"}'
+```
+
+Response:
+
+```json
+{"response": "Here are the files in /workspace:\n..."}
+```
+
+**GET /health** — health check (no auth required)
+
+```bash
+curl -s http://claude:3000/health
+```
+
+Response:
+
+```json
+{"status": "ok"}
+```
+
+### Automation example
+
+Any tool that can make HTTP requests can drive the API. A typical automation flow:
+
+```
+Trigger (cron, chat message, webhook, etc.)
+  → HTTP POST to /ask with the prompt
+  → Parse the JSON response
+  → Send the result wherever it's needed
+```
+
 ## Updating
 
 Nothing to do. The pipeline handles it:
@@ -144,8 +206,10 @@ intentional if you want the pin to hold.
 
 ## Security notes
 
-- **No inbound ports.** The container has no published ports. Verify with
-  `docker port claude` — it should return nothing.
+- **API authentication.** The HTTP API requires a bearer token (`CLAUDE_API_TOKEN`).
+  The server refuses to start without one. Keep this token out of version control.
+- **Reverse proxy.** If exposing the API beyond the Docker network, use HTTPS and
+  restrict access to trusted sources.
 - **Isolated network.** `claude-net` is a dedicated bridge with no route to other
   services on the host.
 - **Non-root, dropped caps, read-only FS.** Any write has to go through a declared

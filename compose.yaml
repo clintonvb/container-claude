@@ -9,6 +9,7 @@ services:
       - <host-workspace-path>:/workspace
     environment:
       - TZ=<your-tz>
+      - CLAUDE_API_TOKEN=<your-secret-token>
     cap_drop: [ALL]
     security_opt:
       - no-new-privileges:true

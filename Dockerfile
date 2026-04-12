@@ -61,6 +61,11 @@ USER claude
 RUN ln -sf /home/claude/.claude/.claude.json /home/claude/.claude.json \
  && ln -sf /home/claude/.claude/.claude.json.lock /home/claude/.claude.json.lock
 
+COPY --chown=claude:users server.js /home/claude/server.js
+COPY --chown=claude:users entrypoint.sh /home/claude/entrypoint.sh
+RUN chmod +x /home/claude/entrypoint.sh
+
 WORKDIR /workspace
+EXPOSE 3000
 ENTRYPOINT ["tini","--"]
-CMD ["claude","--remote-control","--dangerously-skip-permissions"]
+CMD ["/home/claude/entrypoint.sh"]
