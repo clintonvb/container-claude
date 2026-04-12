@@ -63,4 +63,4 @@ RUN ln -sf /home/claude/.claude/.claude.json /home/claude/.claude.json \
 
 WORKDIR /workspace
 ENTRYPOINT ["tini","--"]
-CMD ["claude","--remote-control"]
+CMD ["claude","--remote-control","--dangerously-skip-permissions"]
