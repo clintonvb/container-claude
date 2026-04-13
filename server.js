@@ -53,16 +53,27 @@ const server = http.createServer(async (req, res) => {
     req.on("data", (chunk) => (body += chunk));
     req.on("end", async () => {
       try {
-        const { prompt } = JSON.parse(body);
+        const payload = JSON.parse(body);
+        const { prompt } = payload;
+        const async = payload.async === true || payload.async === "true";
         if (!prompt) {
           res.writeHead(400, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "prompt is required" }));
           return;
         }
 
-        console.log(`[ask] ${prompt.slice(0, 120)}`);
-        const response = await runClaude(prompt);
+        console.log(`[ask${async ? " async" : ""}] ${prompt.slice(0, 120)}`);
 
+        if (async) {
+          runClaude(prompt).catch((err) =>
+            console.error(`[async error] ${err.message}`),
+          );
+          res.writeHead(202, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ status: "accepted" }));
+          return;
+        }
+
+        const response = await runClaude(prompt);
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ response }));
       } catch (err) {
