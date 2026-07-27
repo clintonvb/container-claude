@@ -21,6 +21,7 @@ function runClaude(prompt) {
 
     const proc = spawn("claude", [...args, outputFormat, "text"], {
       env: { ...process.env, NO_COLOR: "1" },
+      stdio: ["ignore", "pipe", "pipe"],
     });
 
     let stdout = "";
@@ -31,7 +32,8 @@ function runClaude(prompt) {
 
     proc.on("close", (code) => {
       if (code !== 0) {
-        reject(new Error(stderr || `claude exited with code ${code}`));
+        const detail = stderr.trim() || stdout.trim() || "no output";
+        reject(new Error(`claude exited with code ${code}: ${detail}`));
       } else {
         resolve(stdout.trim());
       }
